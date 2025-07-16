@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>แชร์รูปภาพ QC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+            padding-bottom: 60px;
+        }
+        
+        /* Header */
+        .header {
+            background: #00B900;
+            color: white;
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .header .info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00B900;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Progress Bar */
+        .progress-container {
+            background: white;
+            padding: 20px;
+            margin: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #00B900;
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+        
+        .progress-text {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        /* Share Container */
+        .share-container {
+            padding: 15px;
+            display: none;
+        }
+        
+        .share-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .share-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        /* Preview Section */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .preview-item {
+            position: relative;
+            padding-bottom: 100%;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .preview-item img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .preview-more {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        /* Share Result */
+        .share-result {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        /* Bottom Actions */
+        .bottom-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 15px;
+            display: none;
+            gap: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-primary {
+            background: #00B900;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Error State */
+        .error {
+            text-align: center;
+            padding: 50px 20px;
+            color: #666;
+            display: none;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 2000;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* No Auth Notice */
+        .no-auth-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            margin: 10px 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>📤 แชร์รูปภาพ QC</h1>
+        <div class="info" id="headerInfo">กำลังโหลด...</div>
+    </div>
+    
+    <!-- No Auth Notice -->
+    <div class="no-auth-notice">
+        💡 โหมดแชร์รูปภาพ - ไม่ต้องเข้าสู่ระบบ
+    </div>
+    
+    <!-- Loading State -->
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div>กำลังเตรียมข้อมูล...</div>
+    </div>
+    
+    <!-- Progress Container -->
+    <div class="progress-container" id="progressContainer">
+        <h3>กำลังเตรียมรูปภาพ</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        <div class="progress-text" id="progressText">0%</div>
+    </div>
+    
+    <!-- Share Container -->
+    <div class="share-container" id="shareContainer">
+        <!-- Preview Section -->
+        <div class="share-section">
+            <div class="share-title">รูปภาพที่จะแชร์</div>
+            <div class="preview-grid" id="previewGrid"></div>
+        </div>
+        
+        <!-- Share Result -->
+        <div class="share-section">
+            <div class="share-title">ลิงก์สำหรับแชร์</div>
+            <div class="share-result" id="shareResult"></div>
+        </div>
+    </div>
+    
+    <!-- Error State -->
+    <div class="error" id="error">
+        <div class="error-icon">❌</div>
+        <h2>เกิดข้อผิดพลาด</h2>
+        <p id="errorMessage">ไม่สามารถโหลดข้อมูลได้</p>
+    </div>
+    
+    <!-- Bottom Actions -->
+    <div class="bottom-actions" id="bottomActions">
+        <button class="btn btn-secondary" onclick="goBack()">
+            <span>🔙</span>
+            <span>กลับ</span>
+        </button>
+        <button class="btn btn-primary" id="copyBtn" onclick="copyLinks()">
+            <span>📋</span>
+            <span>คัดลอกลิงก์</span>
+        </button>
+    </div>
+    
+    <script>
+        // Global variables
+        let images = [];
+        let downloadedImages = [];
+        let lotNumber = '';
+        let imageDate = '';
+        let baseUrl = '';
+        let shareLinks = '';
+        
+        // Initialize (No Authentication)
+        async function initialize() {
+            try {
+                console.log('=== No-Auth Share Page ===');
+                
+                // Extract parameters
+                const params = new URLSearchParams(window.location.search);
+                lotNumber = params.get('lot') || '';
+                imageDate = params.get('date') || '';
+                const imageIds = params.get('imageIds') ? params.get('imageIds').split(',') : [];
+                baseUrl = params.get('base_url') || window.location.origin;
+                
+                console.log('Parameters:', { lotNumber, imageDate, imageIds, baseUrl });
+                
+                if (!lotNumber || !imageDate) {
+                    showError('ไม่พบข้อมูล Lot หรือวันที่');
+                    return;
+                }
+                
+                // Update header
+                const formattedDate = new Date(imageDate).toLocaleDateString('th-TH');
+                document.getElementById('headerInfo').textContent = 
+                    `📦 Lot: ${lotNumber} | 📅 ${formattedDate}`;
+                
+                // Load images
+                await loadImages(imageIds);
+                
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                showError('ไม่สามารถเริ่มต้นระบบได้: ' + error.message);
+            }
+        }
+        
+        // Load images
+        async function loadImages(imageIds) {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                // Fetch images from API
+                const response = await fetch(`${baseUrl}/api/images/${encodeURIComponent(lotNumber)}/${encodeURIComponent(imageDate)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                // Filter selected images if imageIds provided
+                if (imageIds.length > 0) {
+                    images = data.images.filter(img => imageIds.includes(String(img.image_id)));
+                } else {
+                    images = data.images;
+                }
+                
+                if (images.length === 0) {
+                    showError('ไม่พบรูปภาพที่เลือก');
+                    return;
+                }
+                
+                console.log(`Loaded ${images.length} images`);
+                
+                // Prepare share links
+                await prepareShareLinks();
+                
+            } catch (error) {
+                console.error('Error loading images:', error);
+                showError('เกิดข้อผิดพลาดในการโหลดรูปภาพ: ' + error.message);
+            }
+        }
+        
+        // Prepare share links
+        async function prepareShareLinks() {
+            try {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('progressContainer').style.display = 'block';
+                
+                downloadedImages = [];
+                const totalImages = images.length;
+                
+                // Prepare links
+                const links = [];
+                
+                for (let i = 0; i < totalImages; i++) {
+                    const image = images[i];
+                    const progress = ((i + 1) / totalImages) * 100;
+                    
+                    updateProgress(progress, `กำลังเตรียมรูปที่ ${i + 1}/${totalImages}`);
+                    
+                    // Create download link
+                    const imageUrl = image.url.startsWith('http') ? image.url : `${baseUrl}${image.url}`;
+                    
+                    downloadedImages.push({
+                        ...image,
+                        downloadUrl: imageUrl,
+                        filename: `QC_${lotNumber}_${i + 1}.jpg`
+                    });
+                    
+                    links.push(`${i + 1}. รูปที่ ${i + 1}\n${imageUrl}`);
+                    
+                    // Small delay for UI update
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                
+                // Create share message
+                const shareMessage = `📸 รูปภาพ QC\n📦 Lot: ${lotNumber}\n📅 ${new Date(imageDate).toLocaleDateString('th-TH')}\n🖼️ จำนวน ${totalImages} รูป\n\n🔗 ลิงก์ดาวน์โหลด:\n\n${links.join('\n\n')}`;
+                
+                shareLinks = shareMessage;
+                
+                // Hide progress and show result
+                document.getElementById('progressContainer').style.display = 'none';
+                showShareResult();
+                
+            } catch (error) {
+                console.error('Error preparing share links:', error);
+                showError('เกิดข้อผิดพลาดในการเตรียมลิงก์: ' + error.message);
+            }
+        }
+        
+        // Update progress
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text || Math.round(percent) + '%';
+        }
+        
+        // Show share result
+        function showShareResult() {
+            // Render preview
+            renderPreview();
+            
+            // Show share links
+            document.getElementById('shareResult').textContent = shareLinks;
+            document.getElementById('shareResult').style.display = 'block';
+            
+            // Show containers
+            document.getElementById('shareContainer').style.display = 'block';
+            document.getElementById('bottomActions').style.display = 'flex';
+        }
+        
+        // Render preview grid
+        function renderPreview() {
+            const grid = document.getElementById('previewGrid');
+            grid.innerHTML = '';
+            
+            const maxPreview = 8;
+            const previewImages = downloadedImages.slice(0, maxPreview);
+            
+            previewImages.forEach((image, index) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                
+                if (index === maxPreview - 1 && downloadedImages.length > maxPreview) {
+                    // Show +N more
+                    item.classList.add('preview-more');
+                    item.innerHTML = `+${downloadedImages.length - maxPreview + 1}`;
+                } else {
+                    const img = document.createElement('img');
+                    img.src = image.downloadUrl;
+                    img.alt = `Image ${index + 1}`;
+                    item.appendChild(img);
+                }
+                
+                grid.appendChild(item);
+            });
+        }
+        
+        // Copy links
+        async function copyLinks() {
+            try {
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(shareLinks);
+                } else {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = shareLinks;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+                
+                showToast('✅ คัดลอกลิงก์แล้ว');
+                
+                // Change button text
+                const copyBtn = document.getElementById('copyBtn');
+                copyBtn.innerHTML = '<span>✅</span><span>คัดลอกแล้ว</span>';
+                
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    copyBtn.innerHTML = '<span>📋</span><span>คัดลอกลิงก์</span>';
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                showToast('❌ ไม่สามารถคัดลอกได้');
+            }
+        }
+        
+        // Go back
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        }
+        
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('shareContainer').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+        
+        // Show toast
+        function showToast(message, duration = 3000) {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

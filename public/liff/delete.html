@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ลบรูปภาพ QC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+            padding-bottom: 80px;
+        }
+        
+        /* Header */
+        .header {
+            background: #FF0000;
+            color: white;
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .header .info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FF0000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Image Grid */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 15px;
+        }
+        
+        /* Responsive for larger screens */
+        @media (min-width: 768px) {
+            .image-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 12px;
+                max-width: 800px;
+                margin: 0 auto;
+            }
+            
+            .image-item img {
+                height: 150px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .image-grid {
+                grid-template-columns: repeat(5, 1fr);
+                gap: 15px;
+                max-width: 1000px;
+            }
+            
+            .image-item img {
+                height: 180px;
+            }
+        }
+        
+        .image-item {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .image-item:active {
+            transform: scale(0.95);
+        }
+        
+        .image-item.selected {
+            box-shadow: 0 0 0 3px #FF0000;
+            transform: scale(0.95);
+        }
+        
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .image-item.selected img {
+            opacity: 0.7;
+        }
+        
+        .image-info {
+            padding: 8px;
+            font-size: 11px;
+            color: #666;
+            background: white;
+        }
+        
+        .image-item.selected .image-info {
+            background: #FFE0E0;
+        }
+        
+        .image-checkbox {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #FF0000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .image-item.selected .image-checkbox {
+            background: #FF0000;
+        }
+        
+        .image-item.selected .image-checkbox::after {
+            content: '✓';
+            color: white;
+            font-weight: bold;
+        }
+        
+        /* Bottom Bar */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-primary {
+            background: #FF0000;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Selection counter */
+        .selection-counter {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FF0000;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 50;
+        }
+        
+        /* Error State */
+        .error {
+            text-align: center;
+            padding: 50px 20px;
+            color: #666;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .error-details {
+            background: #f0f0f0;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: left;
+            max-width: 90%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 2000;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Confirmation Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 300px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .modal-message {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Select All Button */
+        .select-all-btn {
+            position: fixed;
+            top: 70px;
+            right: 15px;
+            background: white;
+            border: 1px solid #FF0000;
+            color: #FF0000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            z-index: 50;
+        }
+        
+        .select-all-btn.selected {
+            background: #FF0000;
+            color: white;
+        }
+        
+        /* No Auth Notice */
+        .no-auth-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🗑️ ลบรูปภาพ QC</h1>
+        <div class="info" id="headerInfo">กำลังโหลด...</div>
+    </div>
+    
+    <!-- No Auth Notice -->
+    <div class="no-auth-notice">
+        💡 โหมดลบรูปภาพ - ไม่ต้องเข้าสู่ระบบ
+    </div>
+    
+    <!-- Select All Button -->
+    <button class="select-all-btn" id="selectAllBtn" onclick="toggleSelectAll()">
+        เลือกทั้งหมด
+    </button>
+    
+    <!-- Selection Counter -->
+    <div class="selection-counter" id="selectionCounter">
+        เลือกแล้ว 0 รูป
+    </div>
+    
+    <!-- Content -->
+    <div id="content">
+        <!-- Loading State -->
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>กำลังโหลดรูปภาพ...</div>
+        </div>
+        
+        <!-- Image Grid -->
+        <div class="image-grid" id="imageGrid" style="display: none;"></div>
+        
+        <!-- Error State -->
+        <div class="error" id="error" style="display: none;">
+            <div class="error-icon">❌</div>
+            <h2>เกิดข้อผิดพลาด</h2>
+            <p id="errorMessage">ไม่สามารถโหลดรูปภาพได้</p>
+            <div class="error-details" id="errorDetails" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <!-- Bottom Bar -->
+    <div class="bottom-bar" id="bottomBar" style="display: none;">
+        <button class="btn btn-secondary" onclick="cancelDelete()">
+            ยกเลิก
+        </button>
+        <button class="btn btn-primary" id="deleteBtn" disabled onclick="confirmDelete()">
+            ลบรูปที่เลือก
+        </button>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-title">ยืนยันการลบ</div>
+            <div class="modal-message" id="confirmMessage">
+                คุณต้องการลบรูปภาพที่เลือกใช่หรือไม่?
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="executeDelete()">ลบ</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global variables
+        let images = [];
+        let selectedImages = new Set();
+        let lotNumber = '';
+        let imageDate = '';
+        let isDeleting = false;
+        let baseUrl = '';
+        
+        // Initialize (No Authentication Version)
+        async function initialize() {
+            try {
+                console.log('=== No-Auth Delete Page Initialization ===');
+                
+                // Extract parameters
+                const params = new URLSearchParams(window.location.search);
+                lotNumber = params.get('lot') || '';
+                imageDate = params.get('date') || '';
+                baseUrl = params.get('base_url') || window.location.origin;
+                
+                console.log('Parameters:', { lotNumber, imageDate, baseUrl });
+                
+                if (!lotNumber || !imageDate) {
+                    showError('ไม่พบข้อมูล Lot หรือวันที่');
+                    return;
+                }
+                
+                // Load images directly without authentication
+                await loadImages();
+                
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                showError('ไม่สามารถเริ่มต้นระบบได้', error.message);
+            }
+        }
+        
+        // Load images from server
+        async function loadImages() {
+            try {
+                console.log('Loading images for deletion...');
+                const apiUrl = `${baseUrl}/api/images/${encodeURIComponent(lotNumber)}/${encodeURIComponent(imageDate)}`;
+                console.log('API URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('API Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('API Response data:', data);
+                
+                images = data.images || [];
+                
+                if (images.length === 0) {
+                    showError(`ไม่พบรูปภาพ`, {
+                        lot: lotNumber,
+                        date: imageDate,
+                        formattedDate: new Date(imageDate).toLocaleDateString('th-TH')
+                    });
+                    return;
+                }
+                
+                // Update header
+                updateHeader();
+                
+                // Render images
+                renderImages();
+                
+                // Show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('imageGrid').style.display = 'grid';
+                document.getElementById('bottomBar').style.display = 'flex';
+                
+                console.log('Images loaded successfully:', images.length);
+                
+            } catch (error) {
+                console.error('Error loading images:', error);
+                
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    showError('ไม่สามารถเชื่อมต่อกับ Server ได้', {
+                        error: error.message,
+                        apiUrl: `${baseUrl}/api/images/${lotNumber}/${imageDate}`,
+                        suggestion: 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต'
+                    });
+                } else {
+                    showError('เกิดข้อผิดพลาดในการโหลดรูปภาพ', {
+                        error: error.message,
+                        lot: lotNumber,
+                        date: imageDate
+                    });
+                }
+            }
+        }
+        
+        // Update header info
+        function updateHeader() {
+            const formattedDate = new Date(imageDate).toLocaleDateString('th-TH');
+            document.getElementById('headerInfo').textContent = 
+                `📦 Lot: ${lotNumber} | 📅 ${formattedDate} | 🖼️ ${images.length} รูป`;
+        }
+        
+        // Render image grid
+        function renderImages() {
+            const grid = document.getElementById('imageGrid');
+            grid.innerHTML = '';
+            
+            images.forEach((image, index) => {
+                const item = document.createElement('div');
+                item.className = 'image-item';
+                item.onclick = () => toggleImageSelection(index);
+                
+                const img = document.createElement('img');
+                img.src = image.url;
+                img.alt = `Image ${index + 1}`;
+                img.loading = 'lazy';
+                
+                const checkbox = document.createElement('div');
+                checkbox.className = 'image-checkbox';
+                
+                const info = document.createElement('div');
+                info.className = 'image-info';
+                const uploadTime = new Date(image.uploaded_at).toLocaleString('th-TH', {
+                    day: 'numeric',
+                    month: 'numeric',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                info.textContent = `รูปที่ ${index + 1} (${uploadTime})`;
+                
+                item.appendChild(img);
+                item.appendChild(checkbox);
+                item.appendChild(info);
+                
+                grid.appendChild(item);
+            });
+        }
+        
+        // Toggle image selection
+        function toggleImageSelection(index) {
+            if (selectedImages.has(index)) {
+                selectedImages.delete(index);
+            } else {
+                selectedImages.add(index);
+            }
+            
+            updateUI();
+        }
+        
+        // Toggle select all
+        function toggleSelectAll() {
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            
+            if (selectedImages.size === images.length) {
+                // Deselect all
+                selectedImages.clear();
+                selectAllBtn.classList.remove('selected');
+                selectAllBtn.textContent = 'เลือกทั้งหมด';
+            } else {
+                // Select all
+                selectedImages.clear();
+                images.forEach((_, index) => selectedImages.add(index));
+                selectAllBtn.classList.add('selected');
+                selectAllBtn.textContent = 'ยกเลิกทั้งหมด';
+            }
+            
+            updateUI();
+        }
+        
+        // Update UI based on selection
+        function updateUI() {
+            // Update image items
+            const items = document.querySelectorAll('.image-item');
+            items.forEach((item, index) => {
+                if (selectedImages.has(index)) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+            
+            // Update counter
+            const counter = document.getElementById('selectionCounter');
+            if (selectedImages.size > 0) {
+                counter.style.display = 'block';
+                counter.textContent = `เลือกแล้ว ${selectedImages.size} รูป`;
+            } else {
+                counter.style.display = 'none';
+            }
+            
+            // Update delete button
+            const deleteBtn = document.getElementById('deleteBtn');
+            if (selectedImages.size > 0) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = `ลบ ${selectedImages.size} รูป`;
+            } else {
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = 'ลบรูปที่เลือก';
+            }
+            
+            // Update select all button
+            const selectAllBtn = document.getElementById('selectAllBtn');
+            if (selectedImages.size === images.length && images.length > 0) {
+                selectAllBtn.classList.add('selected');
+                selectAllBtn.textContent = 'ยกเลิกทั้งหมด';
+            } else {
+                selectAllBtn.classList.remove('selected');
+                selectAllBtn.textContent = 'เลือกทั้งหมด';
+            }
+        }
+        
+        // Cancel delete
+        function cancelDelete() {
+            // Simply close the page or go back
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        }
+        
+        // Confirm delete
+        function confirmDelete() {
+            if (selectedImages.size === 0) return;
+            
+            const message = `คุณต้องการลบรูปภาพ ${selectedImages.size} รูป ใช่หรือไม่?\n\nการดำเนินการนี้ไม่สามารถยกเลิกได้`;
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmModal').style.display = 'flex';
+        }
+        
+        // Close modal
+        function closeModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+        
+        // Execute delete (No-Auth version)
+        async function executeDelete() {
+            if (isDeleting) return;
+            isDeleting = true;
+            
+            closeModal();
+            showToast('กำลังลบรูปภาพ...');
+            
+            try {
+                // Get selected image IDs
+                const selectedImageIds = Array.from(selectedImages).map(index => images[index].image_id);
+                
+                console.log('Deleting images:', selectedImageIds);
+                
+                // Send delete request with anonymous user
+                const response = await fetch(`${baseUrl}/api/images/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: 'anonymous', // Use anonymous for no-auth
+                        imageIds: selectedImageIds,
+                        lotNumber: lotNumber,
+                        imageDate: imageDate
+                    })
+                });
+                
+                console.log('Delete response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Delete error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Delete result:', result);
+                
+                if (result.success) {
+                    showToast(`✅ ลบรูปภาพเรียบร้อยแล้ว ${result.deletedCount} รูป`);
+                    
+                    // Reload page after 1.5 seconds
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                    
+                } else {
+                    throw new Error(result.message || 'Failed to delete images');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting images:', error);
+                showToast('❌ เกิดข้อผิดพลาดในการลบรูปภาพ: ' + error.message);
+                isDeleting = false;
+            }
+        }
+        
+        // Show error with details
+        function showError(message, details = null) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+            
+            if (details) {
+                const detailsEl = document.getElementById('errorDetails');
+                detailsEl.style.display = 'block';
+                detailsEl.innerHTML = '<pre>' + JSON.stringify(details, null, 2) + '</pre>';
+            }
+        }
+        
+        // Show toast message
+        function showToast(message, duration = 3000) {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

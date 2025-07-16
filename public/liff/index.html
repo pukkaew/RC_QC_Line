@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC Photo System</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 90%;
+            width: 400px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00B900;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            text-align: center;
+            color: #FF0000;
+            padding: 20px;
+        }
+        .error-details {
+            text-align: left;
+            background: #f0f0f0;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <div>กำลังโหลด...</div>
+        </div>
+        
+        <div class="error" id="error" style="display: none;">
+            <h2>เกิดข้อผิดพลาด</h2>
+            <p id="errorMessage"></p>
+            <div class="error-details" id="errorDetails" style="display: none;"></div>
+        </div>
+        
+        <div class="info" id="info" style="display: none;">
+            <p id="infoMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        // Debug logging
+        console.log('=== LIFF Router Starting (No-Auth Version) ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Search params:', window.location.search);
+        
+        // Function to show info
+        function showInfo(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('infoMessage').textContent = message;
+        }
+        
+        // Function to show error
+        function showError(message, details = null) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+            
+            if (details) {
+                const detailsEl = document.getElementById('errorDetails');
+                detailsEl.style.display = 'block';
+                detailsEl.textContent = typeof details === 'object' ? JSON.stringify(details, null, 2) : details;
+            }
+        }
+        
+        // Extract parameters
+        function extractParameters() {
+            const params = {};
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Method 1: Check for LIFF state parameters
+            const liffState = urlParams.get('liff.state');
+            if (liffState) {
+                console.log('Found liff.state:', liffState);
+                try {
+                    // Decode and parse the state
+                    const decodedState = decodeURIComponent(liffState);
+                    console.log('Decoded liff.state:', decodedState);
+                    
+                    // Parse query string format
+                    const stateParams = new URLSearchParams(decodedState);
+                    for (const [key, value] of stateParams.entries()) {
+                        params[key] = value;
+                    }
+                } catch (e) {
+                    console.error('Error parsing liff.state:', e);
+                }
+            }
+            
+            // Method 2: Direct parameters (override state if present)
+            for (const [key, value] of urlParams.entries()) {
+                if (!key.startsWith('liff.') && key !== 'code' && key !== 'state') {
+                    params[key] = value;
+                }
+            }
+            
+            // Method 3: Check hash
+            if (window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                for (const [key, value] of hashParams.entries()) {
+                    if (!params[key]) {
+                        params[key] = value;
+                    }
+                }
+            }
+            
+            console.log('Extracted parameters:', params);
+            return params;
+        }
+        
+        // Route to appropriate page
+        function routeToPage() {
+            try {
+                const params = extractParameters();
+                
+                // Get main parameters
+                const lot = params.lot;
+                const date = params.date;
+                const page = params.page || 'view';
+                
+                console.log('Routing - Page:', page, 'Lot:', lot, 'Date:', date);
+                
+                // Check if we have required parameters
+                if (!lot || !date) {
+                    // Check if this is from a postback with parameters in different format
+                    const action = params.action;
+                    if (action === 'view' || action === 'delete') {
+                        // Parameters might be in different keys
+                        const lotParam = params.lotNumber || params.lot_number || lot;
+                        const dateParam = params.imageDate || params.image_date || date;
+                        
+                        if (lotParam && dateParam) {
+                            // Redirect with clean parameters
+                            const targetFile = action === 'delete' ? 'delete.html' : 'view.html';
+                            const cleanParams = new URLSearchParams({
+                                lot: lotParam,
+                                date: dateParam,
+                                base_url: window.location.origin
+                            });
+                            window.location.replace(`${window.location.origin}/liff/${targetFile}?${cleanParams.toString()}`);
+                            return;
+                        }
+                    }
+                    
+                    showInfo('ยินดีต้อนรับสู่ระบบดูรูปภาพ QC\n\nกรุณาเข้าใช้งานผ่านการเลือกวันที่จากเมนูในแชท');
+                    return;
+                }
+                
+                // Determine target file
+                let targetFile = 'view.html';
+                if (page === 'delete') {
+                    targetFile = 'delete.html';
+                }
+                
+                // Build clean URL
+                const cleanParams = new URLSearchParams({
+                    lot: lot,
+                    date: date,
+                    base_url: window.location.origin
+                });
+                
+                const targetUrl = `${window.location.origin}/liff/${targetFile}?${cleanParams.toString()}`;
+                console.log('Redirecting to:', targetUrl);
+                
+                showInfo(`กำลังเปิดหน้า ${page === 'delete' ? 'ลบรูปภาพ' : 'ดูรูปภาพ'}...`);
+                
+                // Redirect
+                setTimeout(() => {
+                    window.location.replace(targetUrl);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Router error:', error);
+                showError('เกิดข้อผิดพลาดในการเปิดหน้า', {
+                    error: error.message,
+                    url: window.location.href
+                });
+            }
+        }
+        
+        // Start routing
+        routeToPage();
+    </script>
+</body>
+</html>
