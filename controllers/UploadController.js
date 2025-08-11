@@ -1,5 +1,5 @@
 // Path: RC_QC_Line/controllers/UploadController.js
-// Controller for handling image uploads with PERFECT order tracking
+// Controller for handling image uploads with PERFECT order tracking and group chat support
 const line = require('@line/bot-sdk');
 const fs = require('fs');
 const path = require('path');
@@ -19,7 +19,7 @@ class UploadController {
   }
 
   // Process all pending images after a delay (supports unlimited images)
-  scheduleImageProcessing(userId, lotNumber, delayMs = 5000) {
+  scheduleImageProcessing(userId, lotNumber, chatContext = null, delayMs = 5000) {
     // Clear existing timer if any
     if (this.uploadTimers.has(userId)) {
       clearTimeout(this.uploadTimers.get(userId));
@@ -35,7 +35,7 @@ class UploadController {
     }
 
     const timer = setTimeout(async () => {
-      await this.processPendingImages(userId, lotNumber);
+      await this.processPendingImages(userId, lotNumber, chatContext);
       this.uploadTimers.delete(userId);
     }, actualDelay);
 
@@ -80,7 +80,8 @@ class UploadController {
           images: [], 
           lotNumber: lotNumber,
           lastUpdateTime: Date.now(),
-          uploadSessionId: sessionId
+          uploadSessionId: sessionId,
+          chatContext: chatContext  // Store chat context
         };
         // Initialize counter for this session
         this.imageCounter.set(`${userId}_${sessionId}`, 0);
@@ -108,7 +109,7 @@ class UploadController {
       logger.info(`Received image #${imageOrder} for user ${userId}, session ${pendingUpload.uploadSessionId}`);
       
       // Schedule processing with appropriate delay for image count
-      this.scheduleImageProcessing(userId, lotNumber);
+      this.scheduleImageProcessing(userId, lotNumber, chatContext);
       
     } catch (error) {
       logger.error('Error handling image upload with Lot:', error);
@@ -122,7 +123,7 @@ class UploadController {
   }
 
   // Process all pending images for a user (supports unlimited images)
-  async processPendingImages(userId, lotNumber) {
+  async processPendingImages(userId, lotNumber, chatContext = null) {
     try {
       const pendingUpload = this.pendingUploads.get(userId);
       if (!pendingUpload || pendingUpload.images.length === 0) {
@@ -135,9 +136,15 @@ class UploadController {
       
       // Send processing notification for large uploads
       if (imageCount > 10) {
-        await lineService.pushMessage(userId, lineService.createTextMessage(
+        const processingMessage = lineService.createTextMessage(
           `🔄 กำลังประมวลผล ${imageCount} รูปภาพ สำหรับ Lot: ${lotNumber} กรุณารอสักครู่...`
-        ));
+        );
+        
+        if (chatContext?.isGroupChat) {
+          await lineService.pushMessageToChat(chatContext.chatId, processingMessage, chatContext.chatType);
+        } else {
+          await lineService.pushMessage(userId, processingMessage);
+        }
       }
       
       // Sort images by imageOrder (guaranteed correct order)
@@ -167,18 +174,30 @@ class UploadController {
       try {
         if (imageCount > 20) {
           // Send progress update for very large uploads
-          await lineService.pushMessage(userId, lineService.createTextMessage(
+          const progressMessage = lineService.createTextMessage(
             `⏳ กำลังบีบอัดและบันทึกรูปภาพ ${imageCount} รูป...`
-          ));
+          );
+          
+          if (chatContext?.isGroupChat) {
+            await lineService.pushMessageToChat(chatContext.chatId, progressMessage, chatContext.chatType);
+          } else {
+            await lineService.pushMessage(userId, progressMessage);
+          }
         }
         
         result = await imageService.processImages(files, lotNumber, formattedDate, userId);
         
       } catch (imageProcessError) {
         logger.error('Error during image processing:', imageProcessError);
-        await lineService.pushMessage(userId, lineService.createTextMessage(
+        const errorMessage = lineService.createTextMessage(
           `❌ เกิดข้อผิดพลาดในการประมวลผลรูปภาพ: ${imageProcessError.message}\nกรุณาลองใหม่อีกครั้ง`
-        ));
+        );
+        
+        if (chatContext?.isGroupChat) {
+          await lineService.pushMessageToChat(chatContext.chatId, errorMessage, chatContext.chatType);
+        } else {
+          await lineService.pushMessage(userId, errorMessage);
+        }
         return;
       }
       
@@ -203,7 +222,11 @@ class UploadController {
       }
       
       // Send success message
-      await lineService.pushMessage(userId, successMessage);
+      if (chatContext?.isGroupChat) {
+        await lineService.pushMessageToChat(chatContext.chatId, successMessage, chatContext.chatType);
+      } else {
+        await lineService.pushMessage(userId, successMessage);
+      }
       
       // Return result
       return result;
@@ -211,10 +234,13 @@ class UploadController {
       logger.error('Error processing pending images:', error);
       
       // Send error message
-      await lineService.pushMessage(
-        userId,
-        lineService.createTextMessage(`❌ เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: ${error.message}\nโปรดลองใหม่อีกครั้ง`)
-      );
+      const errorMessage = lineService.createTextMessage(`❌ เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ: ${error.message}\nโปรดลองใหม่อีกครั้ง`);
+      
+      if (chatContext?.isGroupChat) {
+        await lineService.pushMessageToChat(chatContext.chatId, errorMessage, chatContext.chatType);
+      } else {
+        await lineService.pushMessage(userId, errorMessage);
+      }
       
       throw error;
     }
@@ -246,7 +272,7 @@ class UploadController {
 
       const imageBuffer = Buffer.concat(chunks);
       
-      // Store pending upload in memory
+      // Store pending upload in memory with chat context
       let pendingUpload = this.pendingUploads.get(userId);
       
       if (!pendingUpload) {
@@ -254,7 +280,8 @@ class UploadController {
         pendingUpload = {
           images: [],
           lastUpdateTime: Date.now(),
-          uploadSessionId: sessionId
+          uploadSessionId: sessionId,
+          chatContext: chatContext  // Store chat context
         };
         // Initialize counter for this session
         this.imageCounter.set(`${userId}_${sessionId}`, 0);
