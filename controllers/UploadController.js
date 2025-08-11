@@ -198,11 +198,19 @@ class UploadController {
         } else {
           await lineService.pushMessage(userId, errorMessage);
         }
+        
+        // Clear upload state on error
+        const chatId = chatContext?.chatId || 'direct';
+        lineService.setUploadInfo(userId, null, chatId);
+        lineService.clearUserState(userId, chatId);
+        
         return;
       }
       
-      // Reset upload info
-      lineService.setUploadInfo(userId, null);
+      // Reset upload info and clear user state
+      const chatId = chatContext?.chatId || 'direct';
+      lineService.setUploadInfo(userId, null, chatId);
+      lineService.clearUserState(userId, chatId);
       
       // Clear pending uploads and counter for this user
       this.pendingUploads.delete(userId);
@@ -228,6 +236,9 @@ class UploadController {
         await lineService.pushMessage(userId, successMessage);
       }
       
+      // Log upload completion
+      logger.info(`Upload completed for user ${userId} in ${chatContext?.isGroupChat ? 'group' : 'direct'} chat (${chatId})`);
+      
       // Return result
       return result;
     } catch (error) {
@@ -241,6 +252,14 @@ class UploadController {
       } else {
         await lineService.pushMessage(userId, errorMessage);
       }
+      
+      // Clear upload state on error
+      const chatId = chatContext?.chatId || 'direct';
+      lineService.setUploadInfo(userId, null, chatId);
+      lineService.clearUserState(userId, chatId);
+      
+      // Clear pending uploads
+      this.pendingUploads.delete(userId);
       
       throw error;
     }
