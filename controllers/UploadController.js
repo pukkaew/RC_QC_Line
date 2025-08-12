@@ -3,6 +3,7 @@
 const line = require('@line/bot-sdk');
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 const lineConfig = require('../config/line');
 const lineService = require('../services/LineService');
 const imageService = require('../services/ImageService');
@@ -162,9 +163,11 @@ class UploadController {
       const files = pendingUpload.images.map((image) => {
         // Use the guaranteed unique imageOrder
         const orderPadded = String(image.imageOrder).padStart(4, '0');
+        const timestamp = Date.now();
+        const uuid = require('uuid').v4().slice(0, 8);
         return {
           buffer: image.buffer,
-          originalname: `img_${sessionId}_${orderPadded}.jpg`, // This ensures correct ordering
+          originalname: `${timestamp}_${sessionId}_${orderPadded}_${uuid}.jpg`, // Match SQL expected pattern
           mimetype: image.contentType
         };
       });
@@ -473,9 +476,11 @@ class UploadController {
       // Prepare files for processing with order in filename
       const files = pendingUpload.images.map((image) => {
         const orderPadded = String(image.imageOrder).padStart(4, '0');
+        const timestamp = Date.now();
+        const uuid = require('uuid').v4().slice(0, 8);
         return {
           buffer: image.buffer,
-          originalname: `img_${sessionId}_${orderPadded}.jpg`,
+          originalname: `${timestamp}_${sessionId}_${orderPadded}_${uuid}.jpg`, // Match SQL expected pattern
           mimetype: image.contentType
         };
       });
