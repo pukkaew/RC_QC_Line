@@ -188,7 +188,7 @@ class UploadController {
           }
         }
         
-        result = await imageService.processImages(files, lotNumber, formattedDate, userId);
+        result = await imageService.processImages(files, lotNumber, formattedDate, userId, sessionId);
         
       } catch (imageProcessError) {
         logger.error('Error during image processing:', imageProcessError);
@@ -486,7 +486,7 @@ class UploadController {
       });
       
       // Process and save images
-      const result = await imageService.processImages(files, lotNumber.trim(), formattedDate, userId);
+      const result = await imageService.processImages(files, lotNumber.trim(), formattedDate, userId, sessionId);
       
       // Clear pending uploads and counter
       this.pendingUploads.delete(userId);
@@ -525,6 +525,9 @@ class UploadController {
         return;
       }
       
+      // Get session ID or create new one for backward compatibility
+      const sessionId = pendingUpload.uploadSessionId || Date.now();
+
       // Prepare files for processing
       const files = pendingUpload.images.map((image, index) => {
         return {
@@ -533,9 +536,9 @@ class UploadController {
           mimetype: image.contentType
         };
       });
-      
+
       // Process and save images
-      const result = await imageService.processImages(files, lotNumber, date, userId);
+      const result = await imageService.processImages(files, lotNumber, date, userId, sessionId);
       
       // Clear pending uploads
       this.pendingUploads.delete(userId);
