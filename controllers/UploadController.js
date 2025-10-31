@@ -71,14 +71,25 @@ class UploadController {
       });
 
       const imageBuffer = Buffer.concat(chunks);
-      
+
       // Get or create pending upload for the Lot
       let pendingUpload = this.pendingUploads.get(userId);
-      
+
+      // CRITICAL FIX: If user uploads different Lot, process old images first!
+      if (pendingUpload && pendingUpload.lotNumber !== lotNumber) {
+        logger.warn(`User ${userId} changed Lot from "${pendingUpload.lotNumber}" to "${lotNumber}". Processing old images first.`);
+
+        // Process pending images for old Lot immediately
+        await this.processPendingImages(userId, pendingUpload.lotNumber, chatContext);
+
+        // Clear old pending upload
+        pendingUpload = null;
+      }
+
       if (!pendingUpload) {
         const sessionId = Date.now();
-        pendingUpload = { 
-          images: [], 
+        pendingUpload = {
+          images: [],
           lotNumber: lotNumber,
           lastUpdateTime: Date.now(),
           uploadSessionId: sessionId,
