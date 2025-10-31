@@ -123,27 +123,46 @@ class ImageModel {
   }
 
   // Get images by lot ID and date - ORDER BY file_name which contains order
+  // FIXED: Only get images from the latest upload session to avoid mixing images from previous uploads
   async getByLotAndDate(lotId, imageDate) {
     try {
       const query = `
+        -- First, find the latest upload session for this lot and date
+        WITH LatestSession AS (
+          SELECT MAX(upload_session_id) as latest_session_id
+          FROM Images i
+          WHERE i.lot_id = @lotId
+            AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
+            AND i.status = 'active'
+            AND i.upload_session_id IS NOT NULL
+        )
+        -- Then select only images from the latest session
         SELECT i.*, l.lot_number
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
+        LEFT JOIN LatestSession ls ON 1=1
         WHERE i.lot_id = @lotId
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
-        ORDER BY 
+          AND (
+            -- If there are sessions, only get images from the latest session
+            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
+            OR
+            -- If no sessions exist (old data), get all images without session_id
+            (ls.latest_session_id IS NULL AND i.upload_session_id IS NULL)
+          )
+        ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) + 1) > 0
             THEN 0
             ELSE 1
           END,
           -- Extract sessionId (second segment)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             THEN SUBSTRING(
               file_name,
@@ -153,8 +172,8 @@ class ImageModel {
             ELSE '999999999999999'
           END,
           -- Extract order number (third segment)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) + 1) > 0
             THEN SUBSTRING(
@@ -174,9 +193,9 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-      
-      // Log query result
-      logger.info(`Found ${result.recordset.length} images for lot ID ${lotId} on date ${imageDate}`);
+
+      // Log query result with session info
+      logger.info(`Found ${result.recordset.length} images for lot ID ${lotId} on date ${imageDate} (latest session only)`);
       
       return result.recordset;
     } catch (error) {
@@ -186,27 +205,47 @@ class ImageModel {
   }
 
   // Get images by lot number and date - ORDER BY file_name which contains order
+  // FIXED: Only get images from the latest upload session to avoid mixing images from previous uploads
   async getByLotNumberAndDate(lotNumber, imageDate) {
     try {
       const query = `
+        -- First, find the latest upload session for this lot and date
+        WITH LatestSession AS (
+          SELECT MAX(upload_session_id) as latest_session_id
+          FROM Images i
+          JOIN Lots l ON i.lot_id = l.lot_id
+          WHERE l.lot_number = @lotNumber
+            AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
+            AND i.status = 'active'
+            AND i.upload_session_id IS NOT NULL
+        )
+        -- Then select only images from the latest session
         SELECT i.*, l.lot_number
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
+        LEFT JOIN LatestSession ls ON 1=1
         WHERE l.lot_number = @lotNumber
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
-        ORDER BY 
+          AND (
+            -- If there are sessions, only get images from the latest session
+            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
+            OR
+            -- If no sessions exist (old data), get all images without session_id
+            (ls.latest_session_id IS NULL AND i.upload_session_id IS NULL)
+          )
+        ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) + 1) > 0
             THEN 0
             ELSE 1
           END,
           -- Extract sessionId (second segment)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             THEN SUBSTRING(
               file_name,
@@ -216,8 +255,8 @@ class ImageModel {
             ELSE '999999999999999'
           END,
           -- Extract order number (third segment)
-          CASE 
-            WHEN CHARINDEX('_', file_name) > 0 
+          CASE
+            WHEN CHARINDEX('_', file_name) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) > 0
             AND CHARINDEX('_', file_name, CHARINDEX('_', file_name, CHARINDEX('_', file_name) + 1) + 1) > 0
             THEN SUBSTRING(
@@ -237,15 +276,17 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-      
-      // Log query result
-      logger.info(`Found ${result.recordset.length} images for lot ${lotNumber} on date ${imageDate}`);
-      
-      // Debug: Log first few filenames to check ordering
+
+      // Log query result with session info
+      logger.info(`Found ${result.recordset.length} images for lot ${lotNumber} on date ${imageDate} (latest session only)`);
+
+      // Debug: Log first few filenames to check ordering and session
       if (result.recordset.length > 0) {
+        const firstImage = result.recordset[0];
+        logger.info(`Session ID: ${firstImage.upload_session_id || 'N/A (old data)'}`);
         logger.info(`First 3 filenames in order:`);
         result.recordset.slice(0, 3).forEach((img, idx) => {
-          logger.info(`  ${idx + 1}. ${img.file_name}`);
+          logger.info(`  ${idx + 1}. ${img.file_name} (session: ${img.upload_session_id || 'N/A'})`);
         });
       }
       
