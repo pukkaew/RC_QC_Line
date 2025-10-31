@@ -16,18 +16,18 @@ class ImageService {
   }
 
   // Process and save uploaded images (supports unlimited images with progress tracking)
-  async processImages(files, lotNumber, imageDate, uploadedBy) {
+  async processImages(files, lotNumber, imageDate, uploadedBy, sessionId = null) {
     try {
       if (!files || files.length === 0) {
         throw new AppError('No files provided', 400);
       }
-      
+
       const totalFiles = files.length;
-      logger.info(`Starting to process ${totalFiles} images for Lot: ${lotNumber}`);
-      
+      logger.info(`Starting to process ${totalFiles} images for Lot: ${lotNumber}, Session: ${sessionId}`);
+
       // Get or create lot record
       const lot = await lotModel.getOrCreate(lotNumber);
-      
+
       // Process each image with better error handling and progress tracking
       const processedImages = [];
       const errors = [];
@@ -71,9 +71,10 @@ class ImageService {
               originalSize: compressedImage.originalSize,
               compressedSize: compressedImage.compressedSize,
               mimeType: file.mimetype,
-              uploadedBy: uploadedBy
+              uploadedBy: uploadedBy,
+              uploadSessionId: sessionId  // Add session ID
             };
-            
+
             // Create image record in database
             const imageId = await imageModel.create(imageData);
             
