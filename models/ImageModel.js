@@ -194,11 +194,22 @@ class ImageModel {
   // Get images by lot number and date - ORDER BY file_name which contains order
   async getByLotNumberAndDate(lotNumber, imageDate) {
     try {
+      // CRITICAL: Trim lot_number to match LotModel behavior
+      const trimmedLotNumber = (lotNumber || '').trim();
+
+      if (!trimmedLotNumber) {
+        logger.warn('getByLotNumberAndDate called with empty lot number');
+        return [];
+      }
+
+      // Log for debugging
+      logger.info(`Querying images for lot: "${trimmedLotNumber}", date: ${imageDate}`);
+
       const query = `
         SELECT i.*, l.lot_number
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
-        WHERE l.lot_number = @lotNumber
+        WHERE LTRIM(RTRIM(l.lot_number)) = @lotNumber
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
         ORDER BY 
@@ -236,25 +247,33 @@ class ImageModel {
           -- Fall back to uploaded_at for old images
           i.uploaded_at
       `;
-      
+
       const params = [
-        { name: 'lotNumber', type: sql.VarChar, value: lotNumber },
+        { name: 'lotNumber', type: sql.VarChar, value: trimmedLotNumber },
         { name: 'imageDate', type: sql.Date, value: imageDate }
       ];
-      
+
       const result = await dbService.executeQuery(query, params);
-      
-      // Log query result
-      logger.info(`Found ${result.recordset.length} images for lot ${lotNumber} on date ${imageDate}`);
-      
-      // Debug: Log first few filenames to check ordering
+
+      // Enhanced logging
+      logger.info(`Found ${result.recordset.length} images for lot "${trimmedLotNumber}" on date ${imageDate}`);
+
+      // Debug: Log lot_id to detect duplicates
       if (result.recordset.length > 0) {
+        const uniqueLotIds = [...new Set(result.recordset.map(img => img.lot_id))];
+        logger.info(`Unique lot_id(s) in results: ${uniqueLotIds.join(', ')}`);
+
+        if (uniqueLotIds.length > 1) {
+          logger.warn(`⚠️ WARNING: Multiple lot_id found for lot "${trimmedLotNumber}"! This indicates duplicate Lots in database.`);
+        }
+
+        // Log first few filenames
         logger.info(`First 3 filenames in order:`);
         result.recordset.slice(0, 3).forEach((img, idx) => {
-          logger.info(`  ${idx + 1}. ${img.file_name}`);
+          logger.info(`  ${idx + 1}. lot_id=${img.lot_id}, file_name=${img.file_name}`);
         });
       }
-      
+
       return result.recordset;
     } catch (error) {
       logger.error('Error getting images by lot number and date:', error);

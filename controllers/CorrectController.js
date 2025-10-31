@@ -180,7 +180,7 @@ class CorrectController {
         SELECT COUNT(*) AS count
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
-        WHERE l.lot_number = ${lotNumber}
+        WHERE LTRIM(RTRIM(l.lot_number)) = ${lotNumber}
           AND i.status = 'active'
       `;
       
@@ -205,7 +205,7 @@ class CorrectController {
         SELECT COUNT(*) AS count
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
-        WHERE l.lot_number = ${lotNumber}
+        WHERE LTRIM(RTRIM(l.lot_number)) = ${lotNumber}
           AND i.status = 'active'
           AND DATEDIFF(HOUR, i.uploaded_at, GETDATE()) < 24
       `;
@@ -233,7 +233,7 @@ class CorrectController {
       try {
         // Find the old Lot
         const oldLotResult = await new sql.Request(transaction).query`
-          SELECT lot_id FROM Lots WHERE lot_number = ${oldLot}
+          SELECT lot_id FROM Lots WHERE LTRIM(RTRIM(lot_number)) = ${oldLot}
         `;
         
         if (oldLotResult.recordset.length === 0) {
@@ -260,7 +260,7 @@ class CorrectController {
         // Find or create the new Lot
         let newLotId;
         const newLotResult = await new sql.Request(transaction).query`
-          SELECT lot_id FROM Lots WHERE lot_number = ${newLot}
+          SELECT lot_id FROM Lots WHERE LTRIM(RTRIM(lot_number)) = ${newLot}
         `;
         
         if (newLotResult.recordset.length === 0) {

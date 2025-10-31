@@ -89,7 +89,7 @@ BEGIN
     SELECT i.*, l.lot_number
     FROM [dbo].[Images] i
     JOIN [dbo].[Lots] l ON i.lot_id = l.lot_id
-    WHERE l.lot_number = @LotNumber
+    WHERE LTRIM(RTRIM(l.lot_number)) = @LotNumber
       AND CONVERT(DATE, i.image_date) = @ImageDate
       AND i.status = 'active'
     ORDER BY i.uploaded_at DESC;
@@ -118,7 +118,7 @@ BEGIN
     DECLARE @LotId INT;
     
     -- Get or create lot
-    SELECT @LotId = lot_id FROM [dbo].[Lots] WHERE lot_number = @LotNumber;
+    SELECT @LotId = lot_id FROM [dbo].[Lots] WHERE LTRIM(RTRIM(lot_number)) = @LotNumber;
     
     IF @LotId IS NULL
     BEGIN
