@@ -151,11 +151,11 @@ class ImageModel {
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
           AND (
-            -- If there are sessions, only get images from the latest session
+            -- Show images from the latest session
             (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
             OR
-            -- If no sessions exist (old data), get all images without session_id
-            (ls.latest_session_id IS NULL AND i.upload_session_id IS NULL)
+            -- ALSO show old images without session_id (backwards compatibility)
+            (i.upload_session_id IS NULL)
           )
         ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)
@@ -234,11 +234,11 @@ class ImageModel {
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
           AND (
-            -- If there are sessions, only get images from the latest session
+            -- Show images from the latest session
             (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
             OR
-            -- If no sessions exist (old data), get all images without session_id
-            (ls.latest_session_id IS NULL AND i.upload_session_id IS NULL)
+            -- ALSO show old images without session_id (backwards compatibility)
+            (i.upload_session_id IS NULL)
           )
         ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)
