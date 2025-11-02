@@ -19,6 +19,7 @@ class ImageModel {
           mime_type,
           uploaded_by,
           uploaded_at,
+          upload_session_id,
           status
         )
         VALUES (
@@ -31,12 +32,13 @@ class ImageModel {
           @mimeType,
           @uploadedBy,
           GETDATE(),
+          @uploadSessionId,
           'active'
         )
-        
+
         SELECT SCOPE_IDENTITY() AS image_id
       `;
-      
+
       const params = [
         { name: 'lotId', type: sql.Int, value: imageData.lotId },
         { name: 'imageDate', type: sql.Date, value: imageData.imageDate },
@@ -45,7 +47,8 @@ class ImageModel {
         { name: 'originalSize', type: sql.Int, value: imageData.originalSize },
         { name: 'compressedSize', type: sql.Int, value: imageData.compressedSize },
         { name: 'mimeType', type: sql.VarChar, value: imageData.mimeType },
-        { name: 'uploadedBy', type: sql.VarChar, value: imageData.uploadedBy }
+        { name: 'uploadedBy', type: sql.VarChar, value: imageData.uploadedBy },
+        { name: 'uploadSessionId', type: sql.BigInt, value: imageData.uploadSessionId || null }
       ];
       
       const result = await dbService.executeQuery(query, params);
@@ -65,10 +68,10 @@ class ImageModel {
     try {
       return await dbService.transaction(async (transaction) => {
         const imageIds = [];
-        
+
         for (const imageData of imagesData) {
           const request = transaction.request();
-          
+
           request.input('lotId', sql.Int, imageData.lotId);
           request.input('imageDate', sql.Date, imageData.imageDate);
           request.input('fileName', sql.VarChar, imageData.fileName);
@@ -77,7 +80,8 @@ class ImageModel {
           request.input('compressedSize', sql.Int, imageData.compressedSize);
           request.input('mimeType', sql.VarChar, imageData.mimeType);
           request.input('uploadedBy', sql.VarChar, imageData.uploadedBy);
-          
+          request.input('uploadSessionId', sql.BigInt, imageData.uploadSessionId || null);
+
           const query = `
             INSERT INTO Images (
               lot_id,
@@ -89,6 +93,7 @@ class ImageModel {
               mime_type,
               uploaded_by,
               uploaded_at,
+              upload_session_id,
               status
             )
             VALUES (
@@ -101,12 +106,13 @@ class ImageModel {
               @mimeType,
               @uploadedBy,
               GETDATE(),
+              @uploadSessionId,
               'active'
             )
-            
+
             SELECT SCOPE_IDENTITY() AS image_id
           `;
-          
+
           const result = await request.query(query);
           imageIds.push(result.recordset[0].image_id);
         }
