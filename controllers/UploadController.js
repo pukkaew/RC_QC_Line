@@ -221,13 +221,30 @@ class UploadController {
       
       // Build success message
       const successMessage = lineMessageBuilder.buildUploadSuccessMessage(result);
-      
+
       // Send success message with additional info for large uploads
       if (result.successfulFiles !== result.totalFiles) {
         const errorMessage = `\n\n⚠️ ประมวลผลสำเร็จ ${result.successfulFiles}/${result.totalFiles} รูป`;
         successMessage.text += errorMessage;
+
+        // Show error details if there are errors
+        if (result.errors && result.errors.length > 0) {
+          successMessage.text += `\n\n❌ รายละเอียด errors:`;
+          // Show first 3 errors to avoid too long message
+          const errorsToShow = result.errors.slice(0, 3);
+          errorsToShow.forEach((error, index) => {
+            successMessage.text += `\n${index + 1}. ${error}`;
+          });
+
+          if (result.errors.length > 3) {
+            successMessage.text += `\n... และอีก ${result.errors.length - 3} errors`;
+          }
+
+          // Log all errors for debugging
+          logger.error(`Upload had ${result.errors.length} errors:`, result.errors);
+        }
       }
-      
+
       if (imageCount > 10) {
         successMessage.text += `\n\n✅ ประมวลผลรูปภาพจำนวนมากเสร็จสิ้น!`;
       }

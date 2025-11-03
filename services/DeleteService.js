@@ -266,6 +266,213 @@ class DeleteService {
       throw error;
     }
   }
+
+  // Delete entire album (all images for a lot and date)
+  async deleteAlbum(lotNumber, date) {
+    try {
+      // Get all images for this lot and date
+      const result = await imageService.getImagesByLotAndDate(lotNumber, date);
+
+      if (!result.images || result.images.length === 0) {
+        throw new AppError('No images found to delete', 404);
+      }
+
+      // Delete all images
+      let deletedCount = 0;
+      const errors = [];
+
+      for (const image of result.images) {
+        try {
+          await imageService.deleteImage(image.image_id);
+          deletedCount++;
+        } catch (error) {
+          logger.error(`Error deleting image ${image.image_id}:`, error);
+          errors.push({ imageId: image.image_id, error: error.message });
+        }
+      }
+
+      logger.info(`Deleted ${deletedCount} of ${result.images.length} images for Lot ${lotNumber} on ${date}`);
+
+      return {
+        totalImages: result.images.length,
+        deletedCount,
+        errors
+      };
+    } catch (error) {
+      logger.error('Error deleting album:', error);
+      throw error;
+    }
+  }
+
+  // Create delete album confirmation message
+  async createDeleteAlbumConfirmation(lotNumber, date) {
+    try {
+      // Get images to show count
+      const result = await imageService.getImagesByLotAndDate(lotNumber, date);
+
+      if (!result.images || result.images.length === 0) {
+        return {
+          type: "text",
+          text: `ไม่พบรูปภาพสำหรับ Lot: ${lotNumber} วันที่: ${new Date(date).toLocaleDateString('th-TH')}`
+        };
+      }
+
+      const imageCount = result.images.length;
+      const formattedDate = new Date(date).toLocaleDateString('th-TH');
+
+      // Create preview thumbnails (max 6)
+      const baseUrl = process.env.BASE_URL || 'https://line.ruxchai.co.th';
+      const previewImages = result.images.slice(0, 6).map(image => {
+        const imageUrl = image.url.startsWith('http') ? image.url : `${baseUrl}${image.url}`;
+        return {
+          type: "image",
+          url: imageUrl,
+          size: "sm",
+          aspectRatio: "1:1",
+          aspectMode: "cover"
+        };
+      });
+
+      // Create confirmation flex message
+      const confirmMessage = {
+        type: "flex",
+        altText: `ยืนยันการลบอัลบั้ม - ${lotNumber}`,
+        contents: {
+          type: "bubble",
+          size: "mega",
+          header: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: "⚠️ ยืนยันการลบทั้งอัลบั้ม",
+                size: "xl",
+                weight: "bold",
+                color: "#FF0000"
+              }
+            ],
+            paddingAll: "15px",
+            backgroundColor: "#FFF0F0"
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: `📦 Lot: ${lotNumber}`,
+                size: "md",
+                weight: "bold",
+                margin: "none"
+              },
+              {
+                type: "text",
+                text: `📅 วันที่: ${formattedDate}`,
+                size: "md",
+                margin: "sm"
+              },
+              {
+                type: "text",
+                text: `🗑️ จำนวนรูปที่จะถูกลบ: ${imageCount} รูป`,
+                size: "lg",
+                weight: "bold",
+                color: "#FF0000",
+                margin: "md"
+              },
+              {
+                type: "separator",
+                margin: "lg"
+              },
+              {
+                type: "text",
+                text: "ตัวอย่างรูปที่จะถูกลบ:",
+                size: "sm",
+                color: "#666666",
+                margin: "lg"
+              },
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: previewImages,
+                spacing: "xs",
+                margin: "md"
+              },
+              imageCount > 6 ? {
+                type: "text",
+                text: `...และอีก ${imageCount - 6} รูป`,
+                size: "xs",
+                color: "#999999",
+                align: "center",
+                margin: "sm"
+              } : {
+                type: "box",
+                layout: "vertical",
+                contents: []
+              },
+              {
+                type: "separator",
+                margin: "lg"
+              },
+              {
+                type: "text",
+                text: "⚠️ คำเตือน:",
+                size: "md",
+                weight: "bold",
+                color: "#FF0000",
+                margin: "lg"
+              },
+              {
+                type: "text",
+                text: "• จะลบรูปภาพทั้งหมดในอัลบั้มนี้\n• การลบไม่สามารถยกเลิกได้\n• กรุณาตรวจสอบให้แน่ใจก่อนยืนยัน",
+                size: "sm",
+                wrap: true,
+                color: "#666666",
+                margin: "sm"
+              }
+            ],
+            paddingAll: "20px"
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              {
+                type: "button",
+                style: "secondary",
+                height: "md",
+                action: {
+                  type: "postback",
+                  label: "❌ ยกเลิก",
+                  data: `action=cancel_delete_album&lot=${encodeURIComponent(lotNumber)}&date=${encodeURIComponent(date)}`,
+                  displayText: "ยกเลิกการลบอัลบั้ม"
+                }
+              },
+              {
+                type: "button",
+                style: "primary",
+                height: "md",
+                action: {
+                  type: "postback",
+                  label: `🗑️ ยืนยันลบ ${imageCount} รูป`,
+                  data: `action=confirm_delete_album&lot=${encodeURIComponent(lotNumber)}&date=${encodeURIComponent(date)}`,
+                  displayText: `ยืนยันลบอัลบั้ม ${lotNumber}`
+                },
+                color: "#FF0000"
+              }
+            ],
+            paddingAll: "15px"
+          }
+        }
+      };
+
+      return confirmMessage;
+    } catch (error) {
+      logger.error('Error creating delete album confirmation:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new DeleteService();

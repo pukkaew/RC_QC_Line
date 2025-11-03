@@ -52,13 +52,20 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-      
-      // Log success
-      logger.info(`Created image record: ${imageData.fileName} for lot ${imageData.lotId}`);
+
+      // Log success with details
+      logger.info(`[DB SUCCESS] Created image record: ${imageData.fileName} for lot ${imageData.lotId}, session: ${imageData.uploadSessionId || 'N/A'}`);
       
       return result.recordset[0].image_id;
     } catch (error) {
-      logger.error('Error creating image record:', error);
+      logger.error(`[DB ERROR] Failed to create image record: ${imageData.fileName}`, {
+        fileName: imageData.fileName,
+        lotId: imageData.lotId,
+        sessionId: imageData.uploadSessionId,
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorNumber: error.number
+      });
       throw error;
     }
   }
@@ -142,7 +149,7 @@ class ImageModel {
             AND i.status = 'active'
             AND i.upload_session_id IS NOT NULL
         )
-        -- Then select only images from the latest session
+        -- Then select images based on session logic
         SELECT i.*, l.lot_number
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
@@ -151,11 +158,11 @@ class ImageModel {
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
           AND (
-            -- Show images from the latest session
-            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
+            -- Case 1: No sessions exist at all (all are NULL) - show all images
+            (ls.latest_session_id IS NULL)
             OR
-            -- ALSO show old images without session_id (backwards compatibility)
-            (i.upload_session_id IS NULL)
+            -- Case 2: Sessions exist - show ONLY images from the latest session
+            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
           )
         ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)
@@ -225,7 +232,7 @@ class ImageModel {
             AND i.status = 'active'
             AND i.upload_session_id IS NOT NULL
         )
-        -- Then select only images from the latest session
+        -- Then select images based on session logic
         SELECT i.*, l.lot_number
         FROM Images i
         JOIN Lots l ON i.lot_id = l.lot_id
@@ -234,11 +241,11 @@ class ImageModel {
           AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
           AND i.status = 'active'
           AND (
-            -- Show images from the latest session
-            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
+            -- Case 1: No sessions exist at all (all are NULL) - show all images
+            (ls.latest_session_id IS NULL)
             OR
-            -- ALSO show old images without session_id (backwards compatibility)
-            (i.upload_session_id IS NULL)
+            -- Case 2: Sessions exist - show ONLY images from the latest session
+            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
           )
         ORDER BY
           -- First, check if filename has our order pattern (timestamp_sessionId_order_uuid.ext)

@@ -134,10 +134,110 @@ class DeleteController {
         type: 'text',
         text: 'ยกเลิกการลบรูปภาพแล้ว'
       };
-      
+
       await lineService.replyMessage(replyToken, cancelMessage);
     } catch (error) {
       logger.error('Error handling delete cancellation:', error);
+      throw error;
+    }
+  }
+
+  // Process delete album - show date picker and confirmation
+  async processDeleteAlbum(userId, lotNumber, replyToken, chatContext = null) {
+    try {
+      const chatId = chatContext?.chatId || 'direct';
+
+      // Validate lot number
+      if (!lotNumber || lotNumber.trim() === '') {
+        await lineService.replyMessage(
+          replyToken,
+          lineService.createTextMessage('เลข Lot ไม่ถูกต้อง กรุณาระบุเลข Lot อีกครั้ง')
+        );
+        return;
+      }
+
+      // Show date picker with only dates that have images
+      await datePickerService.sendDeleteAlbumDatePicker(userId, lotNumber.trim(), chatContext, replyToken);
+
+    } catch (error) {
+      logger.error('Error processing delete album:', error);
+
+      // Reply with error message
+      const errorMessage = 'เกิดข้อผิดพลาดในการประมวลผลเลข Lot โปรดลองใหม่อีกครั้ง';
+      await lineService.replyMessage(replyToken, lineService.createTextMessage(errorMessage));
+
+      throw error;
+    }
+  }
+
+  // Show delete album confirmation after date selection
+  async showDeleteAlbumConfirmation(userId, lotNumber, date, replyToken, chatContext = null) {
+    try {
+      const chatId = chatContext?.chatId || 'direct';
+
+      // Reset user state
+      lineService.setUserState(userId, lineConfig.userStates.idle, {}, chatId);
+
+      // Create delete album confirmation message
+      const confirmMessage = await deleteService.createDeleteAlbumConfirmation(lotNumber, date);
+
+      // Send confirmation
+      await lineService.replyMessage(replyToken, confirmMessage);
+
+    } catch (error) {
+      logger.error('Error showing delete album confirmation:', error);
+
+      // Reply with error message
+      const errorMessage = 'เกิดข้อผิดพลาดในการดึงรูปภาพ โปรดลองใหม่อีกครั้ง';
+      await lineService.replyMessage(replyToken, lineService.createTextMessage(errorMessage));
+
+      throw error;
+    }
+  }
+
+  // Handle delete album confirmation
+  async handleDeleteAlbumConfirmation(userId, lotNumber, date, replyToken, chatContext = null) {
+    try {
+      // Delete the entire album
+      const result = await deleteService.deleteAlbum(lotNumber, date);
+
+      // Send success message
+      const successMessage = {
+        type: 'text',
+        text: `✅ ลบอัลบั้มสำเร็จ\n\n` +
+              `📦 Lot: ${lotNumber}\n` +
+              `📅 วันที่: ${new Date(date).toLocaleDateString('th-TH')}\n` +
+              `🗑️ ลบรูปภาพ: ${result.deletedCount}/${result.totalImages} รูป` +
+              (result.errors.length > 0 ? `\n\n⚠️ มีข้อผิดพลาด ${result.errors.length} รายการ` : '')
+      };
+
+      await lineService.replyMessage(replyToken, successMessage);
+
+      logger.info(`Album deleted successfully - Lot: ${lotNumber}, Date: ${date}, Count: ${result.deletedCount}`);
+
+    } catch (error) {
+      logger.error('Error confirming album deletion:', error);
+
+      // Reply with error message
+      const errorMessage = 'เกิดข้อผิดพลาดในการลบอัลบั้ม โปรดลองใหม่อีกครั้ง';
+      await lineService.replyMessage(replyToken, lineService.createTextMessage(errorMessage));
+
+      throw error;
+    }
+  }
+
+  // Handle delete album cancellation
+  async handleDeleteAlbumCancellation(userId, lotNumber, date, replyToken, chatContext = null) {
+    try {
+      // Send cancellation message
+      const cancelMessage = {
+        type: 'text',
+        text: '✅ ยกเลิกการลบอัลบั้มแล้ว\n\nรูปภาพทั้งหมดยังคงอยู่'
+      };
+
+      await lineService.replyMessage(replyToken, cancelMessage);
+    } catch (error) {
+      logger.error('Error handling delete album cancellation:', error);
       throw error;
     }
   }

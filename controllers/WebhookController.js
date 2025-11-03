@@ -274,6 +274,8 @@ class WebhookController {
             await this.handleViewToday(userId, lotNumber, replyToken, chatContext);
           } else if (data.action === 'delete') {
             await deleteController.processLotNumber(userId, lotNumber, replyToken, chatContext);
+          } else if (data.action === 'deleteAlbum') {
+            await deleteController.processDeleteAlbum(userId, lotNumber, replyToken, chatContext);
           } else if (data.action === 'correct') {
             await correctController.processOldLot(userId, lotNumber, replyToken, chatContext);
           }
@@ -362,7 +364,22 @@ class WebhookController {
               await deleteController.requestLotNumber(userId, replyToken, chatContext);
             }
             break;
-            
+
+          case 'deleteAll':
+          case 'deleteAllShort':
+            // กรณีระบุ Lot มาพร้อมกับคำสั่ง (เช่น #delall ABC123)
+            if (commandInfo.args.length > 0) {
+              const lotNumber = commandInfo.args[0];
+              await deleteController.processDeleteAlbum(userId, lotNumber, replyToken, chatContext);
+            } else {
+              // กรณีไม่ระบุ Lot - ตั้งสถานะให้รอเลข Lot
+              await deleteController.requestLotNumber(userId, replyToken, chatContext);
+              lineService.setUserState(userId, lineConfig.userStates.waitingForLot, {
+                action: 'deleteAlbum'
+              }, chatContext?.chatId || 'direct');
+            }
+            break;
+
           case 'correct':
           case 'correctShort':
             // กรณีระบุ Lot เก่าและใหม่มาพร้อมกับคำสั่ง (เช่น #correct ABC123 XYZ789)
@@ -406,6 +423,11 @@ class WebhookController {
                 await lineService.replyMessage(
                   replyToken,
                   lineService.createTextMessage(commandConfig.helpText.delete)
+                );
+              } else if (helpType === 'deleteall' || helpType === 'delall' || helpType === 'dall' || helpType === 'ลบทั้งหมด' || helpType === 'ลบอัลบั้ม') {
+                await lineService.replyMessage(
+                  replyToken,
+                  lineService.createTextMessage(commandConfig.helpText.deleteAll)
                 );
               } else if (helpType === 'correct' || helpType === 'cor' || helpType === 'แก้ไข') {
                 await lineService.replyMessage(
@@ -542,6 +564,9 @@ class WebhookController {
       } else if (action === 'delete') {
         // Forward to delete controller for showing delete options
         await deleteController.processDateSelection(userId, lotNumber, date, replyToken, chatContext);
+      } else if (action === 'deleteAlbum') {
+        // Forward to delete controller for showing delete album confirmation
+        await deleteController.showDeleteAlbumConfirmation(userId, lotNumber, date, replyToken, chatContext);
       } else if (action === 'delete_image') {
         // Handle image deletion request
         const imageId = params.get('image_id');
@@ -553,6 +578,12 @@ class WebhookController {
       } else if (action === 'cancel_delete') {
         // Handle delete cancellation
         await deleteController.handleDeleteCancellation(userId, lotNumber, date, replyToken, chatContext);
+      } else if (action === 'confirm_delete_album') {
+        // Handle delete album confirmation
+        await deleteController.handleDeleteAlbumConfirmation(userId, lotNumber, date, replyToken, chatContext);
+      } else if (action === 'cancel_delete_album') {
+        // Handle delete album cancellation
+        await deleteController.handleDeleteAlbumCancellation(userId, lotNumber, date, replyToken, chatContext);
       } else if (action === 'send_to_chat') {
         // This action is deprecated - we now open LIFF directly
         logger.warn('Deprecated action: send_to_chat');
@@ -650,9 +681,10 @@ class WebhookController {
         `• ${commandConfig.prefixes.view} [LOT] - ดูรูปภาพ\n` +
         `• ${commandConfig.prefixes.viewToday} [LOT] - ดูรูปวันนี้\n` +
         `• ${commandConfig.prefixes.delete} [LOT] - ลบรูปภาพ\n` +
+        `• ${commandConfig.prefixes.deleteAll} [LOT] - ลบทั้งอัลบั้ม\n` +
         `• ${commandConfig.prefixes.correct} [OLD] [NEW] - แก้ไขเลข Lot\n` +
         `• ${commandConfig.prefixes.help} - วิธีใช้งาน`;
-      
+
       await lineService.replyMessage(
         replyToken,
         lineService.createTextMessage(welcomeMessage)

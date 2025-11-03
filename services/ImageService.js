@@ -87,8 +87,16 @@ class ImageService {
             
             logger.info(`Successfully processed file ${globalIndex + 1}/${totalFiles}: ${compressedImage.filename}`);
           } catch (error) {
-            const errorMsg = `Error processing file ${globalIndex + 1}: ${error.message}`;
-            logger.error(errorMsg, error);
+            const errorMsg = `รูปที่ ${globalIndex + 1} (${file.originalname}): ${error.message}`;
+            logger.error(`[UPLOAD ERROR] ${errorMsg}`, {
+              fileIndex: globalIndex + 1,
+              fileName: file.originalname,
+              fileSize: file.buffer?.length || 0,
+              errorMessage: error.message,
+              errorStack: error.stack,
+              lotNumber: lotNumber,
+              sessionId: uploadSessionId
+            });
             errors.push(errorMsg);
           }
         }
