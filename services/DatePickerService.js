@@ -28,12 +28,33 @@ class DatePickerService {
       logger.info(`DatePicker: Found Lot ${lotNumber} with ID: ${lot.lot_id}`);
       
       // Query for dates with images for this lot
+      // FIXED: Count only images from the latest upload session per date (matching ImageModel logic)
       const query = `
-        SELECT DISTINCT CONVERT(DATE, image_date) as date, COUNT(*) as count
-        FROM Images
-        WHERE lot_id = @lotId
-          AND status = 'active'
-        GROUP BY CONVERT(DATE, image_date)
+        WITH LatestSessionPerDate AS (
+          SELECT
+            CONVERT(DATE, image_date) as image_date,
+            MAX(upload_session_id) as latest_session_id
+          FROM Images
+          WHERE lot_id = @lotId
+            AND status = 'active'
+            AND upload_session_id IS NOT NULL
+          GROUP BY CONVERT(DATE, image_date)
+        )
+        SELECT
+          CONVERT(DATE, i.image_date) as date,
+          COUNT(*) as count
+        FROM Images i
+        LEFT JOIN LatestSessionPerDate ls ON CONVERT(DATE, i.image_date) = ls.image_date
+        WHERE i.lot_id = @lotId
+          AND i.status = 'active'
+          AND (
+            -- Case 1: No sessions exist for this date (all are NULL) - count all images
+            (ls.latest_session_id IS NULL AND i.upload_session_id IS NULL)
+            OR
+            -- Case 2: Sessions exist - count ONLY images from the latest session
+            (ls.latest_session_id IS NOT NULL AND i.upload_session_id = ls.latest_session_id)
+          )
+        GROUP BY CONVERT(DATE, i.image_date)
         ORDER BY date DESC
       `;
       
