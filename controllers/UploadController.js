@@ -134,20 +134,7 @@ class UploadController {
       
       const imageCount = pendingUpload.images.length;
       const sessionId = pendingUpload.uploadSessionId;
-      
-      // Send processing notification for large uploads
-      if (imageCount > 10) {
-        const processingMessage = lineService.createTextMessage(
-          `🔄 กำลังประมวลผล ${imageCount} รูปภาพ สำหรับ Lot: ${lotNumber} กรุณารอสักครู่...`
-        );
-        
-        if (chatContext?.isGroupChat) {
-          await lineService.pushMessageToChat(chatContext.chatId, processingMessage, chatContext.chatType);
-        } else {
-          await lineService.pushMessage(userId, processingMessage);
-        }
-      }
-      
+
       // Sort images by imageOrder (guaranteed correct order)
       pendingUpload.images.sort((a, b) => a.imageOrder - b.imageOrder);
       
@@ -172,22 +159,9 @@ class UploadController {
         };
       });
       
-      // Process and save images with progress updates for large uploads
+      // Process and save images
       let result;
       try {
-        if (imageCount > 20) {
-          // Send progress update for very large uploads
-          const progressMessage = lineService.createTextMessage(
-            `⏳ กำลังบีบอัดและบันทึกรูปภาพ ${imageCount} รูป...`
-          );
-          
-          if (chatContext?.isGroupChat) {
-            await lineService.pushMessageToChat(chatContext.chatId, progressMessage, chatContext.chatType);
-          } else {
-            await lineService.pushMessage(userId, progressMessage);
-          }
-        }
-        
         result = await imageService.processImages(files, lotNumber, formattedDate, userId, sessionId);
         
       } catch (imageProcessError) {
