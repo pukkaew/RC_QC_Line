@@ -103,8 +103,12 @@ class LineService {
       if (!Array.isArray(messages)) {
         messages = [messages];
       }
-      
+
+      const startTime = Date.now();
       await this.client.replyMessage(replyToken, messages);
+      const duration = Date.now() - startTime;
+
+      logger.info(`[LINE REPLY] Success - ${messages.length} message(s), took ${duration}ms`);
       return true;
     } catch (error) {
       logger.error('Error replying to LINE message:', error);
@@ -118,8 +122,12 @@ class LineService {
       if (!Array.isArray(messages)) {
         messages = [messages];
       }
-      
+
+      const startTime = Date.now();
       await this.client.pushMessage(userId, messages);
+      const duration = Date.now() - startTime;
+
+      logger.info(`[LINE PUSH] Success to user ${userId.substring(0, 10)}... - ${messages.length} message(s), took ${duration}ms`);
       return true;
     } catch (error) {
       logger.error('Error pushing LINE message:', error);
@@ -133,7 +141,8 @@ class LineService {
       if (!Array.isArray(messages)) {
         messages = [messages];
       }
-      
+
+      const startTime = Date.now();
       if (chatType === 'group') {
         await this.client.pushMessage(chatId, messages);
       } else if (chatType === 'room') {
@@ -142,7 +151,9 @@ class LineService {
         // Direct message
         await this.client.pushMessage(chatId, messages);
       }
-      
+      const duration = Date.now() - startTime;
+
+      logger.info(`[LINE PUSH CHAT] Success to ${chatType} ${chatId.substring(0, 10)}... - ${messages.length} message(s), took ${duration}ms`);
       return true;
     } catch (error) {
       logger.error('Error pushing message to chat:', error);
