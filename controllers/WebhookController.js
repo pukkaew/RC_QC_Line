@@ -220,6 +220,9 @@ class WebhookController {
           const userUploadInfo = lineService.getUploadInfo(userId, chatContext.chatId);
           if (userUploadInfo && userUploadInfo.isActive) {
             await this.handleImageMessage(userId, message, replyToken, userState, userUploadInfo, chatContext);
+          } else {
+            // Log when image is ignored for debugging
+            logger.warn(`Image ignored for user ${userId} - upload mode not active (chatId: ${chatContext.chatId})`);
           }
           break;
           

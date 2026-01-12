@@ -76,7 +76,8 @@ class UploadController {
   }
 
   // Process all pending images after a delay (supports unlimited images)
-  scheduleImageProcessing(userId, lotNumber, chatContext = null, delayMs = 5000) {
+  // Increased delay from 5s to 8s to handle late-arriving images from LINE
+  scheduleImageProcessing(userId, lotNumber, chatContext = null, delayMs = 8000) {
     // Clear existing timer if any
     if (this.uploadTimers.has(userId)) {
       clearTimeout(this.uploadTimers.get(userId));

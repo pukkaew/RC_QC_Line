@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -Command \"Get-Content ''D:\\\\App\\\\RC_QC_Line\\\\logs\\\\error4.log'' | Select-Object -Last 20\")"
+      "Bash(powershell -Command \"Get-Content ''D:\\\\App\\\\RC_QC_Line\\\\logs\\\\error4.log'' | Select-Object -Last 20\")",
+      "Bash(powershell -Command:*)"
     ]
   }
 }
