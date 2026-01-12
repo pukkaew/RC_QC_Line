@@ -17,6 +17,62 @@ class UploadController {
     this.pendingUploads = new Map(); // Store pending uploads by user ID
     this.uploadTimers = new Map(); // Store timers for processing uploads
     this.imageCounter = new Map(); // Global counter for each user session
+
+    // Retry configuration
+    this.retryConfig = {
+      maxRetries: 3,
+      initialDelayMs: 1000,
+      maxDelayMs: 10000,
+      backoffMultiplier: 2
+    };
+  }
+
+  // Helper method to get message content with retry logic
+  async getMessageContentWithRetry(lineClient, messageId) {
+    const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } = this.retryConfig;
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const imageStream = await lineClient.getMessageContent(messageId);
+        const chunks = [];
+
+        imageStream.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+
+        // When image is fully received
+        await new Promise((resolve, reject) => {
+          imageStream.on('end', resolve);
+          imageStream.on('error', reject);
+        });
+
+        return Buffer.concat(chunks);
+      } catch (error) {
+        lastError = error;
+        const isRetryable = error.code === 'ECONNRESET' ||
+                           error.code === 'ETIMEDOUT' ||
+                           error.code === 'ENOTFOUND' ||
+                           error.message?.includes('socket hang up') ||
+                           error.message?.includes('aborted');
+
+        if (!isRetryable || attempt === maxRetries) {
+          logger.error(`Failed to get message content after ${attempt} attempts:`, error);
+          throw error;
+        }
+
+        // Calculate delay with exponential backoff
+        const delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, attempt - 1), maxDelayMs);
+        logger.warn(`Attempt ${attempt}/${maxRetries} failed for message ${messageId}. Retrying in ${delay}ms...`, {
+          error: error.message,
+          code: error.code
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
   }
 
   // Process all pending images after a delay (supports unlimited images)
@@ -50,27 +106,14 @@ class UploadController {
   async handleImageUploadWithLot(userId, message, replyToken, lotNumber, chatContext) {
     try {
       const { id: messageId } = message;
-      
+
       // Get image content from LINE
       const lineClient = new line.Client({
         channelAccessToken: lineConfig.channelAccessToken
       });
-      
-      // Get image content as a buffer
-      const imageStream = await lineClient.getMessageContent(messageId);
-      const chunks = [];
-      
-      imageStream.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
 
-      // When image is fully received
-      await new Promise((resolve, reject) => {
-        imageStream.on('end', resolve);
-        imageStream.on('error', reject);
-      });
-
-      const imageBuffer = Buffer.concat(chunks);
+      // Get image content as a buffer with retry logic
+      const imageBuffer = await this.getMessageContentWithRetry(lineClient, messageId);
       
       // Get or create pending upload for the Lot
       let pendingUpload = this.pendingUploads.get(userId);
@@ -263,27 +306,14 @@ class UploadController {
   async handleImageUpload(userId, message, replyToken, chatContext) {
     try {
       const { id: messageId } = message;
-      
+
       // Get image content from LINE
       const lineClient = new line.Client({
         channelAccessToken: lineConfig.channelAccessToken
       });
-      
-      // Get image content as a buffer
-      const imageStream = await lineClient.getMessageContent(messageId);
-      const chunks = [];
-      
-      imageStream.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
 
-      // When image is fully received
-      await new Promise((resolve, reject) => {
-        imageStream.on('end', resolve);
-        imageStream.on('error', reject);
-      });
-
-      const imageBuffer = Buffer.concat(chunks);
+      // Get image content as a buffer with retry logic
+      const imageBuffer = await this.getMessageContentWithRetry(lineClient, messageId);
       
       // Store pending upload in memory with chat context
       let pendingUpload = this.pendingUploads.get(userId);
