@@ -458,16 +458,33 @@ class DatePickerService {
               spacing: "sm",
               contents: dateButtons
             },
-            // Add note if there are more dates
-            ...(hasMoreDates ? [{
-              type: "text",
-              text: `📌 แสดง ${MAX_DATES} วันล่าสุด (มีทั้งหมด ${availableDates.length} วัน)`,
-              size: "xs",
-              color: "#888888",
-              margin: "lg",
-              wrap: true,
-              align: "center"
-            }] : [])
+            // Add note and LIFF button if there are more dates
+            ...(hasMoreDates ? [
+              {
+                type: "separator",
+                margin: "lg"
+              },
+              {
+                type: "text",
+                text: `📌 แสดง ${MAX_DATES} วันล่าสุด (มีทั้งหมด ${availableDates.length} วัน)`,
+                size: "xs",
+                color: "#888888",
+                margin: "md",
+                wrap: true,
+                align: "center"
+              },
+              {
+                type: "button",
+                style: "link",
+                action: {
+                  type: "uri",
+                  label: "📅 ดูทุกวันใน LIFF",
+                  uri: `https://liff.line.me/2007575196-NWaXrZVE?lot=${encodeURIComponent(lotNumber)}&showAllDates=true`
+                },
+                margin: "sm",
+                height: "sm"
+              }
+            ] : [])
           ]
         }
       }
