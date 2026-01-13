@@ -8,9 +8,7 @@ const logger = require('../utils/Logger');
 router.get('/images/:lot/:date', async (req, res) => {
   try {
     const { lot, date } = req.params;
-    
-    logger.info(`API Request - Lot: ${lot}, Date: ${date}`);
-    
+
     // Validate parameters
     if (!lot || !date) {
       return res.status(400).json({
@@ -18,23 +16,10 @@ router.get('/images/:lot/:date', async (req, res) => {
         message: 'Missing lot number or date'
       });
     }
-    
+
     // Get images
     const result = await imageService.getImagesByLotAndDate(lot, date);
 
-    logger.info(`API Response - Found ${result.images.length} images`);
-
-    // Debug: Log first 5 images with lot_id to verify correct filtering
-    if (result.images.length > 0) {
-      const debugImages = result.images.slice(0, 5).map(img => ({
-        image_id: img.image_id,
-        lot_id: img.lot_id,
-        lot_number: img.lot_number,
-        file_name: img.file_name
-      }));
-      logger.info(`API Debug - First 5 images:`, JSON.stringify(debugImages));
-    }
-    
     // Transform URLs to full URLs
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
     const imagesWithFullUrls = result.images.map(image => ({
@@ -66,10 +51,8 @@ router.get('/images/:lot/:date', async (req, res) => {
 // Delete multiple images
 router.post('/images/delete', async (req, res) => {
   try {
-    const { userId, imageIds, lotNumber, imageDate } = req.body;
-    
-    logger.info(`Delete request - User: ${userId}, Images: ${imageIds.length}, Lot: ${lotNumber}`);
-    
+    const { userId, imageIds, lotNumber } = req.body;
+
     // Validate parameters
     if (!userId || !imageIds || imageIds.length === 0) {
       return res.status(400).json({
@@ -77,24 +60,23 @@ router.post('/images/delete', async (req, res) => {
         message: 'Missing required parameters'
       });
     }
-    
+
     // Delete each image
     const deleteService = require('../services/DeleteService');
     let deletedCount = 0;
     const errors = [];
-    
+
     for (const imageId of imageIds) {
       try {
         await deleteService.deleteImage(imageId);
         deletedCount++;
-        logger.info(`Deleted image ID: ${imageId}`);
       } catch (error) {
         logger.error(`Error deleting image ${imageId}:`, error);
         errors.push({ imageId, error: error.message });
       }
     }
-    
-    logger.info(`Delete completed - Deleted: ${deletedCount}/${imageIds.length}`);
+
+    logger.info(`Deleted ${deletedCount}/${imageIds.length} images for Lot: ${lotNumber}`);
     
     res.json({
       success: true,
@@ -186,8 +168,6 @@ router.get('/debug/images/:lot/:date', async (req, res) => {
     ];
     const imageResult = await dbService.executeQuery(imageQuery, imageParams);
 
-    logger.info(`DEBUG: Lot ${lot} (ID: ${lotInfo.lot_id}) has ${imageResult.recordset.length} images`);
-
     // Check actual file sizes on disk for each image
     const imagesWithFileInfo = await Promise.all(imageResult.recordset.map(async (img, index) => {
       let actualFileSize = null;
@@ -202,7 +182,7 @@ router.get('/debug/images/:lot/:date', async (req, res) => {
           fileExists = true;
         }
       } catch (e) {
-        logger.warn(`Could not check file: ${img.file_name}`, e.message);
+        // File check failed - will show as fileExists: false
       }
 
       return {

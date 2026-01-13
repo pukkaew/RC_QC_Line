@@ -52,10 +52,6 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-
-      // Log success with details
-      logger.info(`[DB SUCCESS] Created image record: ${imageData.fileName} for lot ${imageData.lotId}, session: ${imageData.uploadSessionId || 'N/A'}`);
-      
       return result.recordset[0].image_id;
     } catch (error) {
       logger.error(`[DB ERROR] Failed to create image record: ${imageData.fileName}`, {
@@ -123,10 +119,7 @@ class ImageModel {
           const result = await request.query(query);
           imageIds.push(result.recordset[0].image_id);
         }
-        
-        // Log success
-        logger.info(`Created ${imageIds.length} image records in batch`);
-        
+
         return imageIds;
       });
     } catch (error) {
@@ -180,10 +173,6 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-
-      // Log query result
-      logger.info(`Found ${result.recordset.length} images for lot ID ${lotId} on date ${imageDate}`);
-
       return result.recordset;
     } catch (error) {
       logger.error('Error getting images by lot and date:', error);
@@ -236,10 +225,6 @@ class ImageModel {
       ];
       
       const result = await dbService.executeQuery(query, params);
-
-      // Log query result
-      logger.info(`Found ${result.recordset.length} images for lot ${lotNumber} on date ${imageDate}`);
-
       return result.recordset;
     } catch (error) {
       logger.error('Error getting images by lot number and date:', error);
@@ -285,10 +270,6 @@ class ImageModel {
       ];
       
       await dbService.executeQuery(query, params);
-      
-      // Log update
-      logger.info(`Updated image ${imageId} status to ${status}`);
-      
       return true;
     } catch (error) {
       logger.error('Error updating image status:', error);
