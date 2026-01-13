@@ -177,7 +177,7 @@
                         // Parameters might be in different keys
                         const lotParam = params.lotNumber || params.lot_number || lot;
                         const dateParam = params.imageDate || params.image_date || date;
-                        
+
                         if (lotParam && dateParam) {
                             // Redirect with clean parameters
                             const targetFile = action === 'delete' ? 'delete.html' : 'view.html';
@@ -190,7 +190,20 @@
                             return;
                         }
                     }
-                    
+
+                    // If we have lot but no date, redirect to dates page
+                    if (lot && !date) {
+                        const cleanParams = new URLSearchParams({
+                            lot: lot,
+                            base_url: window.location.origin
+                        });
+                        showInfo('กำลังโหลดรายการวันที่...');
+                        setTimeout(() => {
+                            window.location.replace(`${window.location.origin}/liff/dates.html?${cleanParams.toString()}`);
+                        }, 300);
+                        return;
+                    }
+
                     showInfo('ยินดีต้อนรับสู่ระบบดูรูปภาพ QC\n\nกรุณาเข้าใช้งานผ่านการเลือกวันที่จากเมนูในแชท');
                     return;
                 }
