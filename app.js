@@ -77,6 +77,9 @@ const shareApiRoutes = require('./routes/shareApi'); // NEW share API routes
 // Setup routes
 app.post('/webhook', webhookController.handleWebhook);
 
+// Internal webhook endpoint (for Gateway)
+app.post('/internal/webhook', webhookController.handleWebhook);
+
 // API routes for LIFF
 app.use('/api', apiRoutes);
 app.use('/api', botShareRoutes);
@@ -192,7 +195,8 @@ app.listen(PORT, () => {
   
   // Log all available endpoints
   logger.info('\nAvailable endpoints:');
-  logger.info('- POST /webhook (LINE webhook)');
+  logger.info('- POST /webhook (LINE webhook - direct)');
+  logger.info('- POST /internal/webhook (LINE webhook - from Gateway)');
   logger.info('- GET /health (Health check)');
   logger.info('- GET /status (System status)');
   logger.info('- GET /view (Web viewer for PC)');
