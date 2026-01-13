@@ -367,9 +367,18 @@ class DatePickerService {
     }
     
     logger.info(`DatePicker: Creating date picker with ${availableDates.length} available dates`);
-    
+
+    // Limit to 10 most recent dates to avoid Flex message size limit
+    const MAX_DATES = 10;
+    const limitedDates = availableDates.slice(0, MAX_DATES);
+    const hasMoreDates = availableDates.length > MAX_DATES;
+
+    if (hasMoreDates) {
+      logger.info(`DatePicker: Limiting display to ${MAX_DATES} dates (total: ${availableDates.length})`);
+    }
+
     // Create date buttons with count
-    const dateButtons = availableDates.map(dateObj => {
+    const dateButtons = limitedDates.map(dateObj => {
       // Add "(วันนี้)" for current date
       const isToday = dateObj.date === this.dateFormatter.getCurrentDate();
       const label = isToday 
@@ -448,33 +457,48 @@ class DatePickerService {
               margin: "lg",
               spacing: "sm",
               contents: dateButtons
-            }
+            },
+            // Add note if there are more dates
+            ...(hasMoreDates ? [{
+              type: "text",
+              text: `📌 แสดง ${MAX_DATES} วันล่าสุด (มีทั้งหมด ${availableDates.length} วัน)`,
+              size: "xs",
+              color: "#888888",
+              margin: "lg",
+              wrap: true,
+              align: "center"
+            }] : [])
           ]
         }
       }
     };
-    
+
     return flexMessage;
   }
 
   // Create text-based date picker fallback for groups
   async createTextDatePickerFallback(lotNumber, action = 'view') {
     const availableDates = await this.getAvailableDatesForLot(lotNumber);
-    
+
     if (availableDates.length === 0) {
       return {
         type: 'text',
         text: `ไม่พบรูปภาพสำหรับ Lot: ${lotNumber}\nกรุณาตรวจสอบเลข Lot หรืออัปโหลดรูปภาพก่อน`
       };
     }
-    
+
+    // Limit to 13 dates (LINE Quick Reply limit)
+    const MAX_QUICK_REPLY = 13;
+    const limitedDates = availableDates.slice(0, MAX_QUICK_REPLY);
+    const hasMoreDates = availableDates.length > MAX_QUICK_REPLY;
+
     // Create quick reply items for available dates
-    const quickReplyItems = availableDates.map(dateObj => {
+    const quickReplyItems = limitedDates.map(dateObj => {
       const isToday = dateObj.date === this.dateFormatter.getCurrentDate();
-      const label = isToday 
-        ? `${dateObj.display} (วันนี้)` 
+      const label = isToday
+        ? `${dateObj.display} (วันนี้)`
         : dateObj.display;
-      
+
       return {
         type: 'action',
         action: {
@@ -485,10 +509,14 @@ class DatePickerService {
         }
       };
     });
-    
+
+    const text = hasMoreDates
+      ? `เลือกวันที่สำหรับ Lot: ${lotNumber}\n(แสดง ${MAX_QUICK_REPLY} วันล่าสุดจาก ${availableDates.length} วัน)`
+      : `เลือกวันที่สำหรับ Lot: ${lotNumber}`;
+
     return {
       type: 'text',
-      text: `เลือกวันที่สำหรับ Lot: ${lotNumber}`,
+      text: text,
       quickReply: {
         items: quickReplyItems
       }
