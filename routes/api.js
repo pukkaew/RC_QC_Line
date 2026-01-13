@@ -147,4 +147,64 @@ router.get('/lots/:lot', async (req, res) => {
   }
 });
 
+// Debug: Check images for a lot directly from database
+router.get('/debug/images/:lot/:date', async (req, res) => {
+  try {
+    const { lot, date } = req.params;
+    const sql = require('mssql');
+    const dbService = require('../services/DatabaseService');
+
+    // Get lot info
+    const lotQuery = `SELECT * FROM Lots WHERE lot_number = @lotNumber`;
+    const lotParams = [{ name: 'lotNumber', type: sql.VarChar, value: lot }];
+    const lotResult = await dbService.executeQuery(lotQuery, lotParams);
+
+    if (!lotResult.recordset || lotResult.recordset.length === 0) {
+      return res.json({ success: false, message: 'Lot not found', lot });
+    }
+
+    const lotInfo = lotResult.recordset[0];
+
+    // Get all images for this lot_id and date
+    const imageQuery = `
+      SELECT i.image_id, i.lot_id, i.file_name, i.image_date, i.upload_session_id, i.status,
+             l.lot_number, l.lot_id as lot_table_id
+      FROM Images i
+      JOIN Lots l ON i.lot_id = l.lot_id
+      WHERE i.lot_id = @lotId
+        AND CONVERT(DATE, i.image_date) = CONVERT(DATE, @imageDate)
+        AND i.status = 'active'
+      ORDER BY i.image_id
+    `;
+    const imageParams = [
+      { name: 'lotId', type: sql.Int, value: lotInfo.lot_id },
+      { name: 'imageDate', type: sql.Date, value: date }
+    ];
+    const imageResult = await dbService.executeQuery(imageQuery, imageParams);
+
+    logger.info(`DEBUG: Lot ${lot} (ID: ${lotInfo.lot_id}) has ${imageResult.recordset.length} images`);
+
+    res.json({
+      success: true,
+      lot: {
+        lot_number: lot,
+        lot_id: lotInfo.lot_id
+      },
+      date,
+      totalImages: imageResult.recordset.length,
+      images: imageResult.recordset.map(img => ({
+        image_id: img.image_id,
+        lot_id: img.lot_id,
+        lot_number: img.lot_number,
+        file_name: img.file_name,
+        session_id: img.upload_session_id
+      }))
+    });
+
+  } catch (error) {
+    logger.error('Debug endpoint error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;
