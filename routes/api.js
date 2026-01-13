@@ -21,8 +21,19 @@ router.get('/images/:lot/:date', async (req, res) => {
     
     // Get images
     const result = await imageService.getImagesByLotAndDate(lot, date);
-    
+
     logger.info(`API Response - Found ${result.images.length} images`);
+
+    // Debug: Log first 5 images with lot_id to verify correct filtering
+    if (result.images.length > 0) {
+      const debugImages = result.images.slice(0, 5).map(img => ({
+        image_id: img.image_id,
+        lot_id: img.lot_id,
+        lot_number: img.lot_number,
+        file_name: img.file_name
+      }));
+      logger.info(`API Debug - First 5 images:`, JSON.stringify(debugImages));
+    }
     
     // Transform URLs to full URLs
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
